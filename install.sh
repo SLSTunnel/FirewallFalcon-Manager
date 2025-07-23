@@ -18,7 +18,7 @@ log "Starting FirewallFalcon installation."
 prompt_continue
 
 log "Downloading SSH configuration..."
-sudo wget -O /etc/ssh/sshd_config https://raw.githubusercontent.com/firewallfalcons/FirewallFalcon-Manager/refs/heads/main/ssh > /dev/null 2>&1
+sudo wget -O /etc/ssh/sshd_config https://raw.githubusercontent.com/SLSTunnel/FirewallFalcon-Manager/refs/heads/main/ssh > /dev/null 2>&1
 if [ $? -eq 0 ]; then
   log "SSH configuration downloaded successfully."
 else
