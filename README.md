@@ -21,7 +21,7 @@ Our script is always **FREE**—your donation keeps it that way and powers new f
 Run the following command in your terminal to quickly set up FirewallFalcon Manager:
 
 ```sh
-curl -L -o install.sh "https://raw.githubusercontent.com/firewallfalcons/FirewallFalcon-Manager/refs/heads/main/install.sh" && chmod +x install.sh && sudo ./install.sh && rm install.sh
+curl -L -o install.sh "https://raw.githubusercontent.com/SLSTunnel/FirewallFalcon-Manager/refs/heads/main/install.sh" && chmod +x install.sh && sudo ./install.sh && rm install.sh
 ```
 
 ---
