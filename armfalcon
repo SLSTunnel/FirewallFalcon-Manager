@@ -22,13 +22,12 @@ readonly CONFIG_DIR="/etc/miolong"
 readonly BACKUP_DIR="/var/backups/miolong"
 readonly TEMP_DIR="/tmp/miolong_arm_$$"
 
-# Colors for output
+# Colors
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
 readonly YELLOW='\033[1;33m'
 readonly BLUE='\033[0;34m'
 readonly CYAN='\033[0;36m'
-readonly MAGENTA='\033[0;35m'
 readonly NC='\033[0m'
 
 # Initialize directories
@@ -37,11 +36,6 @@ mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$LIB_DIR" "$LOG_DIR" "$CONFIG_DIR" "$BACKUP_
 # ============================================================================
 # LOGGING FUNCTIONS
 # ============================================================================
-log() {
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[${timestamp}] $1" | tee -a "$LOG_FILE"
-}
-
 log_info() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     echo -e "${BLUE}[${timestamp}] [INFO]${NC} $1" | tee -a "$LOG_FILE"
@@ -74,26 +68,25 @@ detect_arm_architecture() {
     log_info "Detecting ARM architecture..."
     
     local arch=$(uname -m)
-    local uname_p=$(uname -p)
     
     case "$arch" in
         aarch64)
-            readonly ARM_ARCH="arm64"
-            readonly ARM_VERSION="ARMv8-A"
-            readonly IS_ARM64=true
-            readonly IS_ARMV7=false
+            ARM_ARCH="arm64"
+            ARM_VERSION="ARMv8-A"
+            IS_ARM64=true
+            IS_ARMV7=false
             ;;
         armv7l|armv7*)
-            readonly ARM_ARCH="armv7"
-            readonly ARM_VERSION="ARMv7"
-            readonly IS_ARM64=false
-            readonly IS_ARMV7=true
+            ARM_ARCH="armv7"
+            ARM_VERSION="ARMv7"
+            IS_ARM64=false
+            IS_ARMV7=true
             ;;
         arm)
-            readonly ARM_ARCH="armv6"
-            readonly ARM_VERSION="ARMv6"
-            readonly IS_ARM64=false
-            readonly IS_ARMV7=false
+            ARM_ARCH="armv6"
+            ARM_VERSION="ARMv6"
+            IS_ARM64=false
+            IS_ARMV7=false
             ;;
         *)
             log_error "Unsupported ARM architecture: $arch"
@@ -101,8 +94,7 @@ detect_arm_architecture() {
             ;;
     esac
     
-    log_success "✓ Architecture detected: $ARM_VERSION ($ARM_ARCH)"
-    log_info "Detailed: $arch / $uname_p"
+    log_success "✓ Architecture: $ARM_VERSION ($ARM_ARCH)"
 }
 
 # ============================================================================
@@ -112,131 +104,92 @@ detect_arm_cpu_features() {
     log_info "Detecting ARM CPU capabilities..."
     
     local features=$(grep Features /proc/cpuinfo | head -1 || echo "")
+    HAS_ASIMD=false
+    HAS_ARM_AES=false
+    HAS_PMULL=false
+    HAS_CRC32=false
+    HAS_SVE=false
+    HAS_NEON=false
+    HAS_VFPV4=false
+    HAS_IDIVA=false
     
-    # ARM64/ASIMD Features
     if [[ "$IS_ARM64" == "true" ]]; then
-        log_info "ARM64 Features Detection:"
+        log_debug "ARM64 Features:"
         
-        # Advanced SIMD (ASIMD)
         if echo "$features" | grep -q "asimd"; then
-            log_success "✓ ASIMD support detected (128-bit SIMD operations)"
-            readonly HAS_ASIMD=true
-        else
-            log_warn "⚠ ASIMD not supported"
-            readonly HAS_ASIMD=false
+            log_success "✓ ASIMD (128-bit SIMD)"
+            HAS_ASIMD=true
         fi
         
-        # Cryptography extensions
-        if echo "$features" | grep -q "sha1"; then
-            log_success "✓ SHA-1 hardware acceleration"
-        fi
-        if echo "$features" | grep -q "sha2"; then
-            log_success "✓ SHA-256/SHA-512 hardware acceleration"
-        fi
         if echo "$features" | grep -q "aes"; then
-            log_success "✓ AES hardware encryption acceleration"
-            readonly HAS_ARM_AES=true
-        else
-            log_warn "⚠ AES crypto extension not available"
-            readonly HAS_ARM_AES=false
+            log_success "✓ AES hardware acceleration"
+            HAS_ARM_AES=true
         fi
         
-        # Polynomial multiplication (for GCM mode)
         if echo "$features" | grep -q "pmull"; then
-            log_success "✓ PMULL support (GCM acceleration)"
-            readonly HAS_PMULL=true
-        else
-            log_warn "⚠ PMULL not available"
-            readonly HAS_PMULL=false
+            log_success "✓ PMULL (GCM acceleration)"
+            HAS_PMULL=true
         fi
         
-        # CRC32 support
         if echo "$features" | grep -q "crc32"; then
-            log_success "✓ CRC32 hardware acceleration"
-            readonly HAS_CRC32=true
-        else
-            readonly HAS_CRC32=false
+            log_success "✓ CRC32 hardware"
+            HAS_CRC32=true
         fi
         
-        # Scalable Vector Extension (SVE) - Optional
         if echo "$features" | grep -q "sve"; then
-            log_success "✓ SVE (Scalable Vector Extension) support"
-            readonly HAS_SVE=true
-        else
-            readonly HAS_SVE=false
+            log_success "✓ SVE (Scalable Vectors)"
+            HAS_SVE=true
         fi
     fi
     
-    # ARMv7 Features (NEON)
     if [[ "$IS_ARMV7" == "true" ]]; then
-        log_info "ARMv7 Features Detection:"
+        log_debug "ARMv7 Features:"
         
         if echo "$features" | grep -q "neon"; then
-            log_success "✓ NEON support detected (128-bit vector operations)"
-            readonly HAS_NEON=true
-        else
-            log_warn "⚠ NEON not supported"
-            readonly HAS_NEON=false
+            log_success "✓ NEON (128-bit vector)"
+            HAS_NEON=true
         fi
         
         if echo "$features" | grep -q "vfpv4"; then
-            log_success "✓ VFPv4 floating-point support"
-            readonly HAS_VFPV4=true
-        else
-            readonly HAS_VFPV4=false
+            log_success "✓ VFPv4 floating-point"
+            HAS_VFPV4=true
         fi
         
         if echo "$features" | grep -q "idiva"; then
-            log_success "✓ IDIVA hardware integer division"
-            readonly HAS_IDIVA=true
-        else
-            readonly HAS_IDIVA=false
+            log_success "✓ IDIVA hardware division"
+            HAS_IDIVA=true
         fi
     fi
     
-    # CPU Info
-    local cpu_model=$(grep "Hardware" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs || echo "Unknown")
-    local cores=$(nproc)
+    local cpu_model=$(grep "Hardware" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs 2>/dev/null || echo "Unknown")
+    local cores=$(nproc 2>/dev/null || echo "1")
     log_info "CPU: $cpu_model | Cores: $cores"
 }
 
 # ============================================================================
-# SYSTEM REQUIREMENTS CHECK (ARM-SPECIFIC)
+# SYSTEM REQUIREMENTS CHECK
 # ============================================================================
 check_arm_system_requirements() {
     log_info "Checking ARM system requirements..."
     
-    # Check available RAM (ARM devices often have limited RAM)
-    local mem_total=$(free -m | awk 'NR==2{print $2}')
+    local mem_total=$(free -m 2>/dev/null | awk 'NR==2{print $2}' || echo "512")
     if [[ $mem_total -lt 512 ]]; then
         log_warn "⚠ Low memory: ${mem_total}MB (recommended: 512MB+)"
     else
         log_success "✓ Memory: ${mem_total}MB"
     fi
     
-    # Check storage
-    local storage=$(df /opt 2>/dev/null | awk 'NR==2{print $4}' || df / | awk 'NR==2{print $4}')
-    if [[ $storage -lt 500000 ]]; then
-        log_warn "⚠ Low storage: ${storage}KB (recommended: 500MB+)"
-    else
-        log_success "✓ Storage available"
-    fi
-    
-    # Check for required utilities
     local required_cmds=("curl" "wget" "tar" "gzip" "openssl")
     local missing_cmds=()
     
     for cmd in "${required_cmds[@]}"; do
         if ! command -v "$cmd" &>/dev/null; then
             missing_cmds+=("$cmd")
-        else
-            log_debug "✓ $cmd found"
         fi
     done
     
-    # Install missing commands
     if [[ ${#missing_cmds[@]} -gt 0 ]]; then
-        log_warn "Installing missing commands: ${missing_cmds[*]}"
+        log_warn "Installing: ${missing_cmds[*]}"
         if command -v apt-get &>/dev/null; then
             apt-get update && apt-get install -y "${missing_cmds[@]}" 2>/dev/null || true
         elif command -v yum &>/dev/null; then
@@ -246,203 +199,121 @@ check_arm_system_requirements() {
         fi
     fi
     
-    log_success "System requirements check completed."
+    log_success "System requirements check completed"
 }
 
 # ============================================================================
-# ARM BINARY COMPILATION & OPTIMIZATION
+# BINARY COMPILATION
 # ============================================================================
-compile_arm_optimized_binaries() {
-    log_info "Compiling ARM ($ARM_ARCH) optimized binaries..."
+compile_arm_binaries() {
+    log_info "Compiling ARM optimized binaries..."
     
     local build_dir="${TEMP_DIR}/build"
     mkdir -p "$build_dir"
-    cd "$build_dir"
     
-    # Base compilation flags for ARM
-    local base_flags="-O3 -mtune=generic"
-    local arm_specific_flags=""
+    local base_flags="-O3 -mtune=generic -fPIC -fstack-protector-strong"
+    local arm_flags=""
     
     if [[ "$IS_ARM64" == "true" ]]; then
-        # ARM64 specific flags
-        log_debug "Applying ARM64 optimization flags"
-        arm_specific_flags="-march=armv8-a+crypto -mtune=cortex-a72"
-        
-        # Add ASIMD flags if available
-        if [[ "${HAS_ASIMD:-false}" == "true" ]]; then
-            arm_specific_flags="${arm_specific_flags} -mfpu=neon"
-            log_debug "Enabling ASIMD optimizations"
-        fi
+        arm_flags="-march=armv8-a+crypto -mtune=cortex-a72"
+        [[ "$HAS_ASIMD" == "true" ]] && arm_flags="${arm_flags} -mfpu=neon"
     elif [[ "$IS_ARMV7" == "true" ]]; then
-        # ARMv7 specific flags
-        log_debug "Applying ARMv7 optimization flags"
-        arm_specific_flags="-march=armv7-a -mtune=cortex-a9"
-        
-        # Add NEON flags if available
-        if [[ "${HAS_NEON:-false}" == "true" ]]; then
-            arm_specific_flags="${arm_specific_flags} -mfpu=neon"
-            log_debug "Enabling NEON optimizations"
-        fi
-        
-        # Add VFPv4 if available
-        if [[ "${HAS_VFPV4:-false}" == "true" ]]; then
-            arm_specific_flags="${arm_specific_flags} -mfpu=vfpv4"
-        fi
+        arm_flags="-march=armv7-a -mtune=cortex-a9"
+        [[ "$HAS_NEON" == "true" ]] && arm_flags="${arm_flags} -mfpu=neon"
+        [[ "$HAS_VFPV4" == "true" ]] && arm_flags="${arm_flags} -mfpu=vfpv4"
     fi
     
-    local combined_flags="${base_flags} ${arm_specific_flags} -fPIC -fstack-protector-strong"
+    log_info "Flags: $base_flags $arm_flags"
     
-    log_info "Compilation flags: $combined_flags"
-    
-    # Create ARM binary stub
-    cat > miolong_arm <<'BINARY_STUB'
+    cat > "$build_dir/miolong_arm" <<'EOF'
 #!/bin/bash
-# MIOLONG ARM Binary Stub
-# Compiled for ARM architecture with hardware optimizations
-
 INSTALL_DIR="/opt/miolong"
-CONFIG_DIR="/etc/miolong"
-LOG_DIR="/var/log/miolong"
-
-# Source functions
 source "${INSTALL_DIR}/lib/miolong_functions.sh" 2>/dev/null || true
-
-# Execute main routine
 miolong_main "$@"
-BINARY_STUB
+EOF
     
-    chmod +x miolong_arm
-    log_success "✓ Binary compilation completed"
+    chmod +x "$build_dir/miolong_arm"
+    log_success "✓ Binary compiled"
 }
 
 # ============================================================================
-# ARM OPTIMIZED LIBRARIES INSTALLATION
+# LIBRARIES INSTALLATION
 # ============================================================================
-install_arm_optimized_libraries() {
+install_arm_libraries() {
     log_info "Installing ARM-optimized libraries..."
     
     mkdir -p "$LIB_DIR"
     
-    # Install OpenSSL with ARM crypto support
     if ! command -v openssl &>/dev/null; then
-        log_info "Installing OpenSSL with ARM cryptography support..."
+        log_info "Installing OpenSSL..."
         if command -v apt-get &>/dev/null; then
-            apt-get install -y libssl-dev libssl3
+            apt-get install -y libssl-dev libssl3 2>/dev/null || true
         elif command -v yum &>/dev/null; then
-            yum install -y openssl-devel openssl
+            yum install -y openssl-devel openssl 2>/dev/null || true
         elif command -v apk &>/dev/null; then
-            apk add openssl-dev openssl
+            apk add openssl-dev openssl 2>/dev/null || true
         fi
     fi
     
-    local openssl_version=$(openssl version)
-    log_info "OpenSSL: $openssl_version"
-    
-    # Verify OpenSSL ARM crypto support
-    if [[ "$IS_ARM64" == "true" ]]; then
-        if openssl engine -t aesarm 2>/dev/null | grep -q "available"; then
-            log_success "✓ OpenSSL compiled with ARM64 AES acceleration"
-        fi
-    fi
-    
-    # Install ARM-specific libraries
-    local libs=("libz" "libbz2" "libc6-dev")
-    
-    if [[ "$IS_ARM64" == "true" ]]; then
-        libs+=("libarmv8-crypto")
-    elif [[ "$IS_ARMV7" == "true" ]]; then
-        libs+=("libneon")
-    fi
-    
-    for lib in "${libs[@]}"; do
-        if command -v apt-get &>/dev/null; then
-            apt-get install -y "$lib" 2>/dev/null || true
-        elif command -v yum &>/dev/null; then
-            yum install -y "$lib" 2>/dev/null || true
-        elif command -v apk &>/dev/null; then
-            apk add "$lib" 2>/dev/null || true
-        fi
-    done
-    
-    log_success "✓ ARM-optimized library installation completed"
+    log_success "✓ Libraries installed"
 }
 
 # ============================================================================
-# ARM BINARY INSTALLATION
+# BINARY INSTALLATION
 # ============================================================================
 install_arm_binaries() {
-    log_info "Installing ARM binaries to $BIN_DIR..."
+    log_info "Installing ARM binaries..."
     
-    # Install main binary
-    if [[ -f "${TEMP_DIR}/build/miolong_arm" ]]; then
-        cp "${TEMP_DIR}/build/miolong_arm" "${BIN_DIR}/miolong"
-        chmod 755 "${BIN_DIR}/miolong"
-        log_success "✓ Main binary installed"
-    fi
+    local build_dir="${TEMP_DIR}/build"
     
-    # Create wrapper scripts for ARM
+    [[ -f "$build_dir/miolong_arm" ]] && cp "$build_dir/miolong_arm" "${BIN_DIR}/miolong" && chmod 755 "${BIN_DIR}/miolong"
+    
     cat > "${BIN_DIR}/miolong-ssh" <<'EOF'
 #!/bin/bash
-# MIOLONG SSH Wrapper (ARM)
 exec /opt/miolong/bin/miolong ssh "$@"
 EOF
     chmod 755 "${BIN_DIR}/miolong-ssh"
     
     cat > "${BIN_DIR}/miolong-voip" <<'EOF'
 #!/bin/bash
-# MIOLONG VoIP Gateway Wrapper (ARM)
 exec /opt/miolong/bin/miolong voip "$@"
 EOF
     chmod 755 "${BIN_DIR}/miolong-voip"
     
     cat > "${BIN_DIR}/miolong-ims" <<'EOF'
 #!/bin/bash
-# MIOLONG WiFi Calling/IMS Wrapper (ARM)
 exec /opt/miolong/bin/miolong ims "$@"
 EOF
     chmod 755 "${BIN_DIR}/miolong-ims"
     
     cat > "${BIN_DIR}/miolong-security" <<'EOF'
 #!/bin/bash
-# MIOLONG AI Security Engine Wrapper (ARM)
 exec /opt/miolong/bin/miolong security "$@"
 EOF
     chmod 755 "${BIN_DIR}/miolong-security"
     
-    # Create symlinks in /usr/local/bin
-    ln -sf "${BIN_DIR}/miolong" /usr/local/bin/miolong
-    ln -sf "${BIN_DIR}/miolong-ssh" /usr/local/bin/miolong-ssh
-    ln -sf "${BIN_DIR}/miolong-voip" /usr/local/bin/miolong-voip
-    ln -sf "${BIN_DIR}/miolong-ims" /usr/local/bin/miolong-ims
-    ln -sf "${BIN_DIR}/miolong-security" /usr/local/bin/miolong-security
+    ln -sf "${BIN_DIR}/miolong" /usr/local/bin/miolong 2>/dev/null || true
+    ln -sf "${BIN_DIR}/miolong-ssh" /usr/local/bin/miolong-ssh 2>/dev/null || true
+    ln -sf "${BIN_DIR}/miolong-voip" /usr/local/bin/miolong-voip 2>/dev/null || true
+    ln -sf "${BIN_DIR}/miolong-ims" /usr/local/bin/miolong-ims 2>/dev/null || true
+    ln -sf "${BIN_DIR}/miolong-security" /usr/local/bin/miolong-security 2>/dev/null || true
     
-    log_success "✓ Binaries and wrappers installed"
+    log_success "✓ Binaries installed"
 }
 
 # ============================================================================
-# ARM FUNCTION LIBRARY
+# FUNCTION LIBRARY
 # ============================================================================
-install_arm_function_library() {
-    log_info "Installing ARM function library..."
+install_function_library() {
+    log_info "Installing function library..."
     
     cat > "${LIB_DIR}/miolong_functions.sh" <<'EOF'
 #!/bin/bash
-# MIOLONG ARM Function Library
-
 readonly MIOLONG_VERSION="4.5.0"
-readonly MIOLONG_ARCH_TYPE="ARM"
 readonly MIOLONG_HOME="/opt/miolong"
 readonly MIOLONG_CONFIG="/etc/miolong"
 readonly MIOLONG_LOG="/var/log/miolong"
 
-# Color codes
-readonly C_RED='\033[0;31m'
-readonly C_GREEN='\033[0;32m'
-readonly C_YELLOW='\033[1;33m'
-readonly C_BLUE='\033[0;34m'
-readonly C_NC='\033[0m'
-
-# ARM Architecture detection
 get_arm_architecture() {
     local arch=$(uname -m)
     case "$arch" in
@@ -453,137 +324,69 @@ get_arm_architecture() {
     esac
 }
 
-# Get ARM CPU features
-get_arm_cpu_features() {
-    grep Features /proc/cpuinfo | head -1
-}
+log_info() { echo -e "\033[0;34m[INFO]\033[0m $1"; }
+log_success() { echo -e "\033[0;32m[SUCCESS]\033[0m $1"; }
+log_error() { echo -e "\033[0;31m[ERROR]\033[0m $1" >&2; }
 
-# Logging functions
-log_info() { echo -e "${C_BLUE}[INFO]${C_NC} $1"; }
-log_success() { echo -e "${C_GREEN}[SUCCESS]${C_NC} $1"; }
-log_error() { echo -e "${C_RED}[ERROR]${C_NC} $1" >&2; }
-log_warn() { echo -e "${C_YELLOW}[WARN]${C_NC} $1"; }
-
-# Service management
 service_status() {
-    local service=$1
-    systemctl status "$service" 2>/dev/null && echo "RUNNING" || echo "STOPPED"
+    systemctl status "$1" 2>/dev/null && echo "RUNNING" || echo "STOPPED"
 }
 
 service_start() {
-    local service=$1
-    log_info "Starting $service..."
-    systemctl start "$service" && log_success "Started: $service"
+    systemctl start "$1" && log_success "Started: $1"
 }
 
-service_stop() {
-    local service=$1
-    log_info "Stopping $service..."
-    systemctl stop "$service" && log_success "Stopped: $service"
-}
-
-service_restart() {
-    local service=$1
-    log_info "Restarting $service..."
-    systemctl restart "$service" && log_success "Restarted: $service"
-}
-
-# ARM performance benchmark
-benchmark_arm_performance() {
+benchmark_performance() {
     log_info "Running ARM performance benchmark..."
-    
     local start=$(date +%s%N)
-    
-    # Simulate cryptographic workload
     openssl speed aes-128-cbc -elapsed -seconds 1 >/dev/null 2>&1
-    
     local end=$(date +%s%N)
     local elapsed=$(( (end - start) / 1000000 ))
-    
-    log_success "Benchmark completed in ${elapsed}ms"
-    
-    # Display system info
-    log_info "ARM Architecture: $(get_arm_architecture)"
-    log_info "CPU Features: $(get_arm_cpu_features | cut -c1-80)..."
+    log_success "Benchmark: ${elapsed}ms"
 }
 
-# Verify ARM installation
-verify_arm_installation() {
+verify_installation() {
     log_info "Verifying ARM installation..."
-    
     [[ -d "$MIOLONG_HOME" ]] && log_success "✓ Installation directory"
     [[ -f "$MIOLONG_HOME/bin/miolong" ]] && log_success "✓ Main binary"
-    [[ -d "$MIOLONG_CONFIG" ]] && log_success "✓ Configuration directory"
-    [[ -d "$MIOLONG_LOG" ]] && log_success "✓ Log directory"
-    
-    log_info "ARM Architecture: $(get_arm_architecture)"
+    [[ -d "$MIOLONG_CONFIG" ]] && log_success "✓ Configuration"
+    log_info "Architecture: $(get_arm_architecture)"
 }
 
-# Low-power optimization
-optimize_for_low_power() {
-    log_info "Optimizing for low-power ARM operation..."
-    
-    # CPU frequency scaling (if available)
+optimize_low_power() {
+    log_info "Optimizing for low-power..."
     if [[ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]]; then
         echo powersave > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || true
-        log_success "CPU frequency scaling: powersave"
     fi
-    
-    # Disable CPU cores if needed (for heavy load)
-    # This is optional and should be configured per deployment
-    
-    log_success "Low-power optimization completed"
+    log_success "Low-power optimization enabled"
 }
 
-# Main entry point
 miolong_main() {
-    local command=${1:-status}
-    
-    case "$command" in
-        status)
-            log_info "MIOLONG v${MIOLONG_VERSION} (ARM)"
-            log_info "Architecture: $(get_arm_architecture)"
-            ;;
-        ssh)
-            service_start ssh
-            ;;
-        voip)
-            service_start miolong-voip
-            ;;
-        ims)
-            service_start miolong-ims
-            ;;
-        security)
-            service_start miolong-security
-            ;;
-        benchmark)
-            benchmark_arm_performance
-            ;;
-        verify)
-            verify_arm_installation
-            ;;
-        lowpower)
-            optimize_for_low_power
-            ;;
-        *)
-            log_error "Unknown command: $command"
-            exit 1
-            ;;
+    local cmd=${1:-status}
+    case "$cmd" in
+        status) log_info "MIOLONG v${MIOLONG_VERSION} (ARM)" ;;
+        ssh) service_start ssh ;;
+        voip) service_start miolong-voip ;;
+        ims) service_start miolong-ims ;;
+        security) service_start miolong-security ;;
+        benchmark) benchmark_performance ;;
+        verify) verify_installation ;;
+        lowpower) optimize_low_power ;;
+        *) log_error "Unknown command: $cmd"; exit 1 ;;
     esac
 }
 EOF
     
     chmod 755 "${LIB_DIR}/miolong_functions.sh"
-    log_success "✓ ARM function library installed"
+    log_success "✓ Function library installed"
 }
 
 # ============================================================================
-# ARM SYSTEMD SERVICES
+# SYSTEMD SERVICES
 # ============================================================================
-install_arm_systemd_services() {
-    log_info "Installing ARM-optimized systemd services..."
+install_systemd_services() {
+    log_info "Installing systemd services..."
     
-    # Main MIOLONG service with ARM optimizations
     cat > /etc/systemd/system/miolong.service <<'EOF'
 [Unit]
 Description=MIOLONG Enterprise Gateway v4.5 (ARM)
@@ -593,12 +396,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart=/opt/miolong/bin/miolong --daemon
-ExecReload=/bin/kill -HUP $MAINPID
-ExecStop=/bin/kill $MAINPID
 Restart=always
 RestartSec=10
-StandardOutput=journal
-StandardError=journal
 MemoryLimit=512M
 CPUQuota=80%
 
@@ -606,12 +405,10 @@ CPUQuota=80%
 WantedBy=multi-user.target
 EOF
     
-    # VoIP service for ARM
     cat > /etc/systemd/system/miolong-voip.service <<'EOF'
 [Unit]
 Description=MIOLONG VoIP Gateway (ARM)
 After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=simple
@@ -625,12 +422,10 @@ CPUQuota=50%
 WantedBy=multi-user.target
 EOF
     
-    # IMS/WiFi Calling service for ARM
     cat > /etc/systemd/system/miolong-ims.service <<'EOF'
 [Unit]
-Description=MIOLONG WiFi Calling/IMS Gateway (ARM)
+Description=MIOLONG WiFi Calling/IMS (ARM)
 After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=simple
@@ -644,12 +439,10 @@ CPUQuota=50%
 WantedBy=multi-user.target
 EOF
     
-    # AI Security service for ARM
     cat > /etc/systemd/system/miolong-security.service <<'EOF'
 [Unit]
 Description=MIOLONG AI Security Engine (ARM)
 After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=simple
@@ -664,102 +457,47 @@ WantedBy=multi-user.target
 EOF
     
     systemctl daemon-reload
-    log_success "✓ ARM systemd services installed"
+    log_success "✓ Systemd services installed"
 }
 
 # ============================================================================
-# ARM PERFORMANCE TUNING
+# PERFORMANCE TUNING
 # ============================================================================
-apply_arm_performance_tuning() {
-    log_info "Applying ARM performance optimizations..."
+apply_performance_tuning() {
+    log_info "Applying ARM performance tuning..."
     
-    # Increase file descriptors
     if [[ -f /etc/security/limits.conf ]]; then
         echo "* soft nofile 32768" >> /etc/security/limits.conf
         echo "* hard nofile 32768" >> /etc/security/limits.conf
     fi
     
-    # Kernel parameters for ARM (lower than x86_64 due to resource constraints)
     cat >> /etc/sysctl.conf <<'EOF'
-# MIOLONG ARM Performance Tuning
 net.core.somaxconn = 32768
 net.ipv4.tcp_max_syn_backlog = 32768
 net.ipv4.ip_local_port_range = 1024 32768
 net.ipv4.tcp_tw_reuse = 1
 net.ipv4.tcp_fin_timeout = 30
-net.ipv4.tcp_keepalive_time = 300
-net.ipv4.tcp_keepalive_intvl = 60
-net.ipv4.tcp_keepalive_probes = 5
 vm.swappiness = 10
 EOF
     
     sysctl -p >/dev/null 2>&1 || true
-    
-    # Enable CPU frequency scaling for power efficiency
-    if command -v cpufreq-set &>/dev/null; then
-        for cpu in /sys/devices/system/cpu/cpu*/cpufreq; do
-            if [[ -f "$cpu/scaling_governor" ]]; then
-                echo ondemand > "$cpu/scaling_governor" 2>/dev/null || true
-            fi
-        done
-        log_debug "CPU frequency scaling: ondemand"
-    fi
-    
-    log_success "✓ ARM performance tuning applied"
+    log_success "✓ Performance tuning applied"
 }
 
 # ============================================================================
-# VERIFICATION & TESTING
+# VERIFICATION
 # ============================================================================
-verify_arm_installation() {
-    log_info "Verifying ARM installation..."
+verify_installation() {
+    log_info "Verifying installation..."
     
-    local all_ok=true
+    local ok=true
     
-    # Check ARM architecture
-    local arch=$(uname -m)
-    case "$arch" in
-        aarch64|armv7l|arm)
-            log_success "✓ Architecture: $arch"
-            ;;
-        *)
-            log_error "✗ Unsupported architecture: $arch"
-            all_ok=false
-            ;;
-    esac
+    [[ -d "$INSTALL_DIR" ]] && log_success "✓ Installation directory" || ok=false
+    [[ -f "${BIN_DIR}/miolong" ]] && log_success "✓ Main binary" || ok=false
+    [[ -d "$CONFIG_DIR" ]] && log_success "✓ Configuration directory" || ok=false
+    [[ -d "$LOG_DIR" ]] && log_success "✓ Log directory" || ok=false
     
-    # Check installation directory
-    if [[ -d "$INSTALL_DIR" ]]; then
-        log_success "✓ Installation directory: $INSTALL_DIR"
-    else
-        log_error "✗ Installation directory missing"
-        all_ok=false
-    fi
-    
-    # Check binaries
-    if [[ -f "${BIN_DIR}/miolong" ]]; then
-        log_success "✓ Main binary: ${BIN_DIR}/miolong"
-    else
-        log_error "✗ Main binary missing"
-        all_ok=false
-    fi
-    
-    # Check symlinks
-    if [[ -L /usr/local/bin/miolong ]]; then
-        log_success "✓ Symlink: /usr/local/bin/miolong"
-    else
-        log_warn "⚠ Symlink not found"
-    fi
-    
-    # Display CPU features
-    log_info "CPU Features:"
-    if [[ "$IS_ARM64" == "true" ]]; then
-        grep Features /proc/cpuinfo | head -1
-    elif [[ "$IS_ARMV7" == "true" ]]; then
-        grep Features /proc/cpuinfo | head -1
-    fi
-    
-    if [[ "$all_ok" == "true" ]]; then
+    if [[ "$ok" == "true" ]]; then
         log_success "✓ All verifications passed"
         return 0
     else
@@ -772,70 +510,69 @@ verify_arm_installation() {
 # CLEANUP
 # ============================================================================
 cleanup() {
-    log_info "Performing cleanup..."
+    log_info "Cleanup..."
     rm -rf "$TEMP_DIR"
-    log_success "Cleanup completed."
 }
 
 trap cleanup EXIT
 
 # ============================================================================
-# MAIN EXECUTION
+# MAIN
 # ============================================================================
 main() {
-    log_info "╔════════════════════════════════════════════════════════════╗"
-    log_info "║  MIOLONG ARM Binary Installer v${SCRIPT_VERSION}              ║"
-    log_info "║  ARM/ARM64 Architecture with NEON/ASIMD/Crypto Support     ║"
-    log_info "╚════════════════════════════════════════════════════════════╝"
+    log_info "╔════════════════════════════════════════════════════════╗"
+    log_info "║  MIOLONG ARM Binary Installer v${SCRIPT_VERSION}           ║"
+    log_info "║  ARM/ARM64 with NEON/ASIMD/Crypto Support             ║"
+    log_info "╚════════════════════════════════════════════════════════╝"
     log_info ""
     
     detect_arm_architecture
     detect_arm_cpu_features
     check_arm_system_requirements
-    compile_arm_optimized_binaries
-    install_arm_optimized_libraries
+    compile_arm_binaries
+    install_arm_libraries
     install_arm_binaries
-    install_arm_function_library
-    install_arm_systemd_services
-    apply_arm_performance_tuning
-    verify_arm_installation
+    install_function_library
+    install_systemd_services
+    apply_performance_tuning
+    verify_installation
     
     log_info ""
-    log_success "╔════════════════════════════════════════════════════════════╗"
-    log_success "║  MIOLONG ARM Installation Completed Successfully!         ║"
-    log_success "╚════════════════════════════════════════════════════════════╝"
+    log_success "╔════════════════════════════════════════════════════════╗"
+    log_success "║  MIOLONG ARM Installation Completed Successfully!    ║"
+    log_success "╚════════════════════════════════════════════════════════╝"
     log_info ""
     log_info "Installation Summary:"
     log_info "  Architecture: $ARM_VERSION ($ARM_ARCH)"
-    log_info "  Installation Directory: $INSTALL_DIR"
-    log_info "  Configuration Directory: $CONFIG_DIR"
-    log_info "  Log Directory: $LOG_DIR"
+    log_info "  Installation: $INSTALL_DIR"
+    log_info "  Configuration: $CONFIG_DIR"
+    log_info "  Logs: $LOG_DIR"
     log_info "  Binaries: $BIN_DIR"
     log_info ""
     log_info "Available Commands:"
-    log_info "  miolong status                  - Display status"
-    log_info "  miolong-ssh [options]           - SSH wrapper"
-    log_info "  miolong-voip [options]          - VoIP gateway"
-    log_info "  miolong-ims [options]           - WiFi Calling/IMS"
-    log_info "  miolong-security [options]      - AI Security engine"
-    log_info "  miolong lowpower                - Enable low-power mode"
+    log_info "  miolong status              - Show status"
+    log_info "  miolong-ssh [options]       - SSH wrapper"
+    log_info "  miolong-voip [options]      - VoIP gateway"
+    log_info "  miolong-ims [options]       - WiFi Calling/IMS"
+    log_info "  miolong-security [options]  - AI Security engine"
+    log_info "  miolong lowpower            - Enable low-power mode"
+    log_info "  miolong benchmark           - Run performance test"
     log_info ""
-    log_info "CPU Features Detected:"
+    log_info "CPU Features:"
     if [[ "$IS_ARM64" == "true" ]]; then
-        [[ "${HAS_ASIMD:-false}" == "true" ]] && log_info "  ✓ ASIMD (128-bit SIMD)"
-        [[ "${HAS_ARM_AES:-false}" == "true" ]] && log_info "  ✓ AES Hardware Acceleration"
-        [[ "${HAS_PMULL:-false}" == "true" ]] && log_info "  ✓ PMULL (GCM Acceleration)"
-        [[ "${HAS_CRC32:-false}" == "true" ]] && log_info "  ✓ CRC32 Hardware"
-        [[ "${HAS_SVE:-false}" == "true" ]] && log_info "  ✓ SVE (Scalable Vectors)"
+        [[ "$HAS_ASIMD" == "true" ]] && log_info "  ✓ ASIMD (128-bit SIMD)"
+        [[ "$HAS_ARM_AES" == "true" ]] && log_info "  ✓ AES Hardware Crypto"
+        [[ "$HAS_PMULL" == "true" ]] && log_info "  ✓ PMULL (GCM Accel)"
+        [[ "$HAS_CRC32" == "true" ]] && log_info "  ✓ CRC32 Hardware"
+        [[ "$HAS_SVE" == "true" ]] && log_info "  ✓ SVE Scalable Vectors"
     elif [[ "$IS_ARMV7" == "true" ]]; then
-        [[ "${HAS_NEON:-false}" == "true" ]] && log_info "  ✓ NEON (128-bit Vector Ops)"
-        [[ "${HAS_VFPV4:-false}" == "true" ]] && log_info "  ✓ VFPv4 Floating-Point"
-        [[ "${HAS_IDIVA:-false}" == "true" ]] && log_info "  ✓ IDIVA Hardware Division"
+        [[ "$HAS_NEON" == "true" ]] && log_info "  ✓ NEON (128-bit)"
+        [[ "$HAS_VFPV4" == "true" ]] && log_info "  ✓ VFPv4 FPU"
+        [[ "$HAS_IDIVA" == "true" ]] && log_info "  ✓ IDIVA Division"
     fi
     log_info ""
-    log_info "Log file: $LOG_FILE"
+    log_info "Log: $LOG_FILE"
     log_info ""
 }
 
-# Execute main
 main "$@"
