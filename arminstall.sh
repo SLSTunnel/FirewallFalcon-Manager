@@ -521,7 +521,7 @@ setup_voip() {
     if [[ ! -f /etc/miolong/voip.conf ]]; then
         log_info "Downloading VoIP configuration..."
         curl -fSL --retry 3 -o /etc/miolong/voip.conf \
-            "https://github.com/SLSTunnel/MIOLONG-Enterprise-Manager/raw/refs/heads/main/voip_config.conf" 2>/dev/null || \
+            "https://github.com/SLSTunnel/FirewallFalcon-Manager/raw/refs/heads/main/voip_config.conf" 2>/dev/null || \
         cat > /etc/miolong/voip.conf <<'EOF'
 [global]
 enabled = true
@@ -551,7 +551,7 @@ setup_wifi_calling() {
     if [[ ! -f /etc/miolong/wifi_calling.conf ]]; then
         log_info "Downloading WiFi Calling configuration..."
         curl -fSL --retry 3 -o /etc/miolong/wifi_calling.conf \
-            "https://github.com/SLSTunnel/MIOLONG-Enterprise-Manager/raw/refs/heads/main/wifi_calling_config.conf" 2>/dev/null || \
+            "https://github.com/SLSTunnel/FirewallFalcon-Manager/raw/refs/heads/main/wifi_calling_config.conf" 2>/dev/null || \
         cat > /etc/miolong/wifi_calling.conf <<'EOF'
 [global]
 enabled = true
@@ -580,7 +580,7 @@ setup_ai_security() {
     if [[ ! -f /etc/miolong/ai_security.conf ]]; then
         log_info "Downloading AI Security configuration..."
         curl -fSL --retry 3 -o /etc/miolong/ai_security.conf \
-            "https://github.com/SLSTunnel/MIOLONG-Enterprise-Manager/raw/refs/heads/main/ai_security_config.conf" 2>/dev/null || \
+            "https://github.com/SLSTunnel/FirewallFalcon-Manager/raw/refs/heads/main/ai_security_config.conf" 2>/dev/null || \
         cat > /etc/miolong/ai_security.conf <<'EOF'
 [global]
 enabled = true
