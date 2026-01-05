@@ -24,7 +24,7 @@ readonly LOCK_FILE="/var/run/miolong_install.lock"
 readonly TEMP_DIR="/tmp/miolong_install_$$"
 
 # Repository Configuration
-readonly GITHUB_REPO="SLSTunnel/MIOLONG-Enterprise-Manager"
+readonly GITHUB_REPO="SLSTunnel/FirewallFalcon-Manager"
 readonly GITHUB_BRANCH="main"
 readonly RELEASE_BASE="https://github.com/${GITHUB_REPO}/raw/refs/heads/${GITHUB_BRANCH}"
 
